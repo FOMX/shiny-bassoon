@@ -65,7 +65,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: ["1.66.0"] # mdbook
+        msrv: ["1.70.0"] # clap builder and anstream
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v4
