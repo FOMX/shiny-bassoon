@@ -37,7 +37,7 @@ impl Preprocessor for Classy {
 #[derive(Debug)]
 struct ClassAnnotation {
     pub class: String,
-    pub index: usize,
+    pub _index: usize,
     pub paragraph_start: usize,
     pub paragraph_end: Option<usize>,
 }
@@ -64,7 +64,7 @@ fn classy(chapter: &mut Chapter) -> Result<(), Error> {
                             let class = v[4..(len_v - 2)].join("");
                             class_annotations.push(ClassAnnotation {
                                 class,
-                                index: i,
+                                _index: i,
                                 paragraph_start: i - 1,
                                 paragraph_end: None,
                             })
@@ -151,7 +151,7 @@ fn handle_preprocessing(pre: &dyn Preprocessor) -> Result<(), Error> {
 /// Check to see if we support the processor (classy only supports html right now)
 fn handle_supports(pre: &dyn Preprocessor, sub_args: &ArgMatches) -> ! {
     let renderer = sub_args.value_of("renderer").expect("Required argument");
-    let supported = pre.supports_renderer(&renderer);
+    let supported = pre.supports_renderer(renderer);
 
     if supported {
         process::exit(0);
