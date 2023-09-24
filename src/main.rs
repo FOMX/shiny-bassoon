@@ -118,7 +118,7 @@ fn classy(chapter: &mut Chapter) -> Result<(), Error> {
 
     // 4. Update chapter.content using markdown generated from the new event vector.
     let mut buf = String::with_capacity(chapter.content.len() + 128);
-    pulldown_cmark_to_cmark::cmark(new_events.into_iter(), &mut buf, None)
+    pulldown_cmark_to_cmark::cmark(new_events.into_iter(), &mut buf)
         .expect("can re-render cmark");
     chapter.content = buf;
     Ok(())
@@ -243,8 +243,7 @@ red text"#;
 
 red text
 
-</div>
-"#;
+</div>"#;
         let ctx = mock_context();
         let book = mock_book(content);
         let expected_book = mock_book(expected_content);
