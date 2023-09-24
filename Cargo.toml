@@ -16,7 +16,7 @@ readme = "README.md"
 repository = "https://github.com/reviewable/mdbook-classy"
 
 [dependencies]
-clap = "2.33"
+clap = "4.4"
 mdbook = "0.4"
 pulldown-cmark = {version = "0.9.3", default-features = false}
 pulldown-cmark-to-cmark = "11.0.0"
