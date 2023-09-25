@@ -1,4 +1,4 @@
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{Parser as ClapParser, Subcommand};
 use mdbook::book::{Book, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{CmdPreprocessor, Preprocessor, PreprocessorContext};
@@ -6,6 +6,24 @@ use mdbook::utils::new_cmark_parser;
 use pulldown_cmark::{CowStr, Event, Tag};
 use std::io;
 use std::process;
+
+/// mdbook preprocessor to add support for admonitions
+#[derive(clap::Parser)]
+#[command(author, version, long_about = None)]
+#[command(name = "classy")]
+#[command(
+    about = "A mdbook preprocessor that recognizes kramdown style paragraph class annotation."
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Check whether a renderer is supported by this preprocessor
+    Supports { renderer: String },
+}
 
 #[derive(Default)]
 pub struct Classy;
@@ -154,8 +172,7 @@ fn handle_preprocessing(pre: &dyn Preprocessor) -> Result<(), Error> {
 }
 
 /// Check to see if we support the processor (classy only supports html right now)
-fn handle_supports(pre: &dyn Preprocessor, sub_args: &ArgMatches) -> ! {
-    let renderer = sub_args.value_of("renderer").expect("Required argument");
+fn handle_supports(pre: &dyn Preprocessor, renderer: &str) -> ! {
     let supported = pre.supports_renderer(renderer);
 
     if supported {
@@ -167,23 +184,21 @@ fn handle_supports(pre: &dyn Preprocessor, sub_args: &ArgMatches) -> ! {
 
 fn main() {
     // 1. Define command interface, requiring renderer to be specified.
-    let matches = App::new("classy")
-        .about("A mdbook preprocessor that recognizes kramdown style paragraph class annotation.")
-        .subcommand(
-            SubCommand::with_name("supports")
-                .arg(Arg::with_name("renderer").required(true))
-                .about("Check whether a renderer is supported by this preprocessor"),
-        )
-        .get_matches();
+    let args = Cli::parse();
 
     // 2. Instantiate the preprocessor.
     let preprocessor = Classy::new();
 
-    if let Some(sub_args) = matches.subcommand_matches("supports") {
-        handle_supports(&preprocessor, sub_args);
-    } else if let Err(e) = handle_preprocessing(&preprocessor) {
-        eprintln!("{}", e);
-        process::exit(1);
+    match args.command {
+        None => {
+            if let Err(e) = handle_preprocessing(&preprocessor) {
+                eprintln!("{}", e);
+                process::exit(1);
+            }
+        }
+        Some(Commands::Supports { renderer }) => {
+            handle_supports(&preprocessor, &renderer);
+        }
     }
 }
 
