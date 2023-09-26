@@ -1,8 +1,12 @@
+use chrono::Local;
 use clap::{Parser, Subcommand};
+use env_logger::Builder;
+use log::{error, LevelFilter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{CmdPreprocessor, Preprocessor};
-use std::io;
+use std::io::Write;
 use std::process;
+use std::{env, io};
 
 use mdbook_classy::preprocessor::Classy;
 
@@ -33,7 +37,7 @@ fn handle_preprocessing(pre: &dyn Preprocessor) -> Result<(), Error> {
     if ctx.mdbook_version != mdbook::MDBOOK_VERSION {
         // We should probably use the `semver` crate to check compatibility
         // here...
-        eprintln!(
+        error!(
             "Warning: The {} plugin was built against version {} of mdbook, \
              but we're being called from version {}",
             pre.name(),
@@ -59,7 +63,35 @@ fn handle_supports(pre: &dyn Preprocessor, renderer: &str) -> ! {
     }
 }
 
+fn init_logger() {
+    let mut builder = Builder::new();
+
+    builder.format(|formatter, record| {
+        writeln!(
+            formatter,
+            "{} [{}] ({}): {}",
+            Local::now().format("%Y-%m-%d %H:%M:%S"),
+            record.level(),
+            record.target(),
+            record.args()
+        )
+    });
+
+    if let Ok(var) = env::var("RUST_LOG") {
+        builder.parse_filters(&var);
+    } else {
+        // if no RUST_LOG provided, default to logging at the Info level
+        builder.filter(None, LevelFilter::Info);
+        // Filter extraneous html5ever not-implemented messages
+        builder.filter(Some("html5ever"), LevelFilter::Error);
+    }
+
+    builder.init();
+}
+
 fn main() {
+    init_logger();
+
     // 1. Define command interface, requiring renderer to be specified.
     let args = Cli::parse();
 
@@ -69,7 +101,7 @@ fn main() {
     match args.command {
         None => {
             if let Err(e) = handle_preprocessing(&preprocessor) {
-                eprintln!("{}", e);
+                error!("{}", e);
                 process::exit(1);
             }
         }

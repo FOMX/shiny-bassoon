@@ -1,3 +1,4 @@
+use log::error;
 use mdbook::book::{Book, Chapter};
 use mdbook::errors::Error;
 use mdbook::preprocess::{Preprocessor, PreprocessorContext};
@@ -21,7 +22,7 @@ impl Preprocessor for Classy {
         book.for_each_mut(|book| {
             if let mdbook::BookItem::Chapter(chapter) = book {
                 if let Err(e) = classy(chapter) {
-                    eprintln!("classy error: {:?}", e);
+                    error!("classy error: {:?}", e);
                 }
             }
         });
