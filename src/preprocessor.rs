@@ -18,6 +18,7 @@ impl Preprocessor for Classy {
     fn name(&self) -> &str {
         "classy"
     }
+
     fn run(&self, _ctx: &PreprocessorContext, mut book: Book) -> Result<Book, Error> {
         book.for_each_mut(|book| {
             if let mdbook::BookItem::Chapter(chapter) = book {
@@ -28,6 +29,7 @@ impl Preprocessor for Classy {
         });
         Ok(book)
     }
+
     fn supports_renderer(&self, renderer: &str) -> bool {
         renderer == "html"
     }
