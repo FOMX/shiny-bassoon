@@ -5,7 +5,7 @@ version = "0.1.0"
 authors = ["Doug Bradshaw <dhbradshaw@gmail.com>"]
 categories = ["command-line-utilities"]
 description = "An mdbook preprocessor for adding html-css classes to markdown."
-edition = "2018"
+edition = "2021"
 exclude = [
   "examples/*",
 ]
@@ -14,6 +14,7 @@ keywords = ["mdbook", "classy", "markdown", "commonmark", "css"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/reviewable/mdbook-classy"
+rust-version = "1.70" # mdbook is currently 1.66, clap builder is 1.70
 
 [dependencies]
 chrono = "0.4.31"
