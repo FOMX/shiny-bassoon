@@ -77,3 +77,9 @@ jobs:
           toolchain: ${{ matrix.msrv }}
       - name: cargo +${{ matrix.msrv }} check
         run: cargo check
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+
