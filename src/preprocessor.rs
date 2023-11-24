@@ -134,6 +134,19 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    macro_rules! assert_round_trip_fail {
+        ($input_content:ident, $expected_incorrect_output_content:ident) => {
+            let ctx: PreprocessorContext = mock_context();
+            let input_book: Book = mock_book($input_content);
+            let expected_correct_output_book = input_book.clone();
+            let expected_incorrect_output_book: Book =
+                mock_book($expected_incorrect_output_content);
+            let output_book = Classy::new().run(&ctx, input_book).unwrap();
+            assert_eq!(output_book, expected_incorrect_output_book);
+            assert_ne!(output_book, expected_correct_output_book);
+        };
+    }
+
     fn mock_book(content: &str) -> Book {
         serde_json::from_value(json!({
             "sections": [
@@ -219,7 +232,7 @@ red text
     /// This test is designed to detect if the upstream crates fix the issue
     #[test]
     fn no_change_round_trip_fail_preprocessor_run() {
-        let content = r#####"# Markdown
+        let input_content = r######"# Markdown
 
 mdBook's [parser](https://github.com/raphlinus/pulldown-cmark) adheres to the [CommonMark](https://commonmark.org/) specification with some extensions described below.
 You can take a quick [tutorial](https://commonmark.org/help/tutorial/),
@@ -453,18 +466,247 @@ Example:
 
 This makes the level 1 heading with the content `Example heading`, ID `first`, and classes `class1` and `class2`. Note that the attributes should be space-separated.
 
-More information can be found in the [heading attrs spec page](https://github.com/raphlinus/pulldown-cmark/blob/master/specs/heading_attrs.txt)."#####;
+More information can be found in the [heading attrs spec page](https://github.com/raphlinus/pulldown-cmark/blob/master/specs/heading_attrs.txt)."######;
 
-        let ctx: PreprocessorContext = mock_context();
-        let book: Book = mock_book(content);
+        let expected_incorrect_output_content = r######"# Markdown
 
-        let expected_book = book.clone();
-        let result = Classy::new().run(&ctx, book);
-        assert!(result.is_ok());
+mdBook's [parser](https://github.com/raphlinus/pulldown-cmark) adheres to the [CommonMark](https://commonmark.org/) specification with some extensions described below.
+You can take a quick [tutorial](https://commonmark.org/help/tutorial/),
+or [try out](https://spec.commonmark.org/dingus/) CommonMark in real time. A complete Markdown overview is out of scope for 
+this documentation, but below is a high level overview of some of the basics. For a more in-depth experience, check out the
+[Markdown Guide](https://www.markdownguide.org).
 
-        // The nop-preprocessor should not have made any changes to the book content.
-        let actual_book = result.unwrap();
-        assert_ne!(actual_book, expected_book);
+## Text and Paragraphs
+
+Text is rendered relatively predictably: 
+
+````markdown
+Here is a line of text.
+
+This is a new line.
+````
+
+Will look like you might expect:
+
+Here is a line of text.
+
+This is a new line.
+
+## Headings
+
+Headings use the `#` marker and should be on a line by themselves. More `#` mean smaller headings:
+
+````markdown
+### A heading 
+
+Some text.
+
+#### A smaller heading 
+
+More text.
+````
+
+### A heading
+
+Some text.
+
+#### A smaller heading
+
+More text.
+
+## Lists
+
+Lists can be unordered or ordered. Ordered lists will order automatically:
+
+````markdown
+* milk
+* eggs
+* butter
+
+1. carrots
+1. celery
+1. radishes
+````
+
+* milk
+* eggs
+* butter
+
+1. carrots
+1. celery
+1. radishes
+
+## Links
+
+Linking to a URL or local file is easy:
+
+````markdown
+Use [mdBook](https://github.com/rust-lang/mdBook). 
+
+Read about [mdBook](mdbook.md).
+
+A bare url: <https://www.rust-lang.org>.
+````
+
+Use [mdBook](https://github.com/rust-lang/mdBook). 
+
+Read about [mdBook](mdbook.md).
+
+A bare url: <https://www.rust-lang.org>.
+
+---
+
+Relative links that end with `.md` will be converted to the `.html` extension.
+It is recommended to use `.md` links when possible.
+This is useful when viewing the Markdown file outside of mdBook, for example on GitHub or GitLab which render Markdown automatically.
+
+Links to `README.md` will be converted to `index.html`.
+This is done since some services like GitHub render README files automatically, but web servers typically expect the root file to be called `index.html`.
+
+You can link to individual headings with `#` fragments.
+For example, `mdbook.md#text-and-paragraphs` would link to the [Text and Paragraphs](#text-and-paragraphs) section above.
+The ID is created by transforming the heading such as converting to lowercase and replacing spaces with dashes.
+You can click on any heading and look at the URL in your browser to see what the fragment looks like.
+
+## Images
+
+Including images is simply a matter of including a link to them, much like in the *Links* section above. The following markdown
+includes the Rust logo SVG image found in the `images` directory at the same level as this file:
+
+````markdown
+![The Rust Logo](images/rust-logo-blk.svg)
+````
+
+Produces the following HTML when built with mdBook:
+
+````html
+<p><img src="images/rust-logo-blk.svg" alt="The Rust Logo" /></p>
+````
+
+Which, of course displays the image like so:
+
+![The Rust Logo](images/rust-logo-blk.svg)
+
+## Extensions
+
+mdBook has several extensions beyond the standard CommonMark specification.
+
+### Strikethrough
+
+Text may be rendered with a horizontal line through the center by wrapping the
+text with one or two tilde characters on each side:
+
+````text
+An example of ~~strikethrough text~~.
+````
+
+This example will render as:
+
+ > 
+ > An example of ~~strikethrough text~~.
+
+This follows the [GitHub Strikethrough extension](https://github.github.com/gfm/#strikethrough-extension-).
+
+### Footnotes
+
+A footnote generates a small numbered link in the text which when clicked
+takes the reader to the footnote text at the bottom of the item. The footnote
+label is written similarly to a link reference with a caret at the front. The
+footnote text is written like a link reference definition, with the text
+following the label. Example:
+
+````text
+This is an example of a footnote[^note].
+
+[^note]: This text is the contents of the footnote, which will be rendered
+    towards the bottom.
+````
+
+This example will render as:
+
+ > 
+ > This is an example of a footnote[^note].
+ > 
+ > [^note]: This text is the contents of the footnote, which will be rendered
+ >     towards the bottom.
+
+The footnotes are automatically numbered based on the order the footnotes are
+written.
+
+### Tables
+
+Tables can be written using pipes and dashes to draw the rows and columns of
+the table. These will be translated to HTML table matching the shape. Example:
+
+````text
+| Header1 | Header2 |
+|---------|---------|
+| abc     | def     |
+````
+
+This example will render similarly to this:
+
+|Header1|Header2|
+|-------|-------|
+|abc|def|
+
+See the specification for the [GitHub Tables extension](https://github.github.com/gfm/#tables-extension-) for more
+details on the exact syntax supported.
+
+### Task lists
+
+Task lists can be used as a checklist of items that have been completed.
+Example:
+
+````md
+- [x] Complete task
+- [ ] Incomplete task
+````
+
+This will render as:
+
+ > 
+ > * [x] Complete task
+ > * [ ] Incomplete task
+
+See the specification for the [task list extension] for more details.
+
+### Smart punctuation
+
+Some ASCII punctuation sequences will be automatically turned into fancy Unicode
+characters:
+
+|ASCII sequence|Unicode|
+|--------------|-------|
+|`--`|–|
+|`---`|—|
+|`...`|…|
+|`"`|“ or ”, depending on context|
+|`'`|‘ or ’, depending on context|
+
+So, no need to manually enter those Unicode characters!
+
+This feature is disabled by default.
+To enable it, see the [`output.html.curly-quotes`] config option.
+
+### Heading attributes
+
+Headings can have a custom HTML ID and classes. This lets you maintain the same ID even if you change the heading's text, it also lets you add multiple classes in the heading.
+
+Example:
+
+````md
+# Example heading { #first .class1 .class2 }
+````
+
+This makes the level 1 heading with the content `Example heading`, ID `first`, and classes `class1` and `class2`. Note that the attributes should be space-separated.
+
+More information can be found in the [heading attrs spec page](https://github.com/raphlinus/pulldown-cmark/blob/master/specs/heading_attrs.txt).
+
+[task list extension]: https://github.github.com/gfm/#task-list-items-extension-
+[`output.html.curly-quotes`]: configuration/renderers.md#html-renderer-options"######;
+
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
     }
 
     /// FIXME: this test uses the raw round trip output from pulldown_cmark::cmark -> pulldown_cmark_to_cmark::cmark
@@ -473,7 +715,7 @@ More information can be found in the [heading attrs spec page](https://github.co
     /// If the upstream crates fix the issue, this test can be updated
     #[test]
     fn no_change_round_trip_preprocessor_run() {
-        let content = "# Markdown\n\nmdBook's [parser](https://github.com/raphlinus/pulldown-cmark) adheres to the [CommonMark](https://commonmark.org/) specification with some extensions described below.\nYou can take a quick [tutorial](https://commonmark.org/help/tutorial/),\nor [try out](https://spec.commonmark.org/dingus/) CommonMark in real time. A complete Markdown overview is out of scope for \nthis documentation, but below is a high level overview of some of the basics. For a more in-depth experience, check out the\n[Markdown Guide](https://www.markdownguide.org).\n\n## Text and Paragraphs\n\nText is rendered relatively predictably: \n\n````markdown\nHere is a line of text.\n\nThis is a new line.\n````\n\nWill look like you might expect:\n\nHere is a line of text.\n\nThis is a new line.\n\n## Headings\n\nHeadings use the `#` marker and should be on a line by themselves. More `#` mean smaller headings:\n\n````markdown\n### A heading \n\nSome text.\n\n#### A smaller heading \n\nMore text.\n````\n\n### A heading\n\nSome text.\n\n#### A smaller heading\n\nMore text.\n\n## Lists\n\nLists can be unordered or ordered. Ordered lists will order automatically:\n\n````markdown\n* milk\n* eggs\n* butter\n\n1. carrots\n1. celery\n1. radishes\n````\n\n* milk\n* eggs\n* butter\n\n1. carrots\n1. celery\n1. radishes\n\n## Links\n\nLinking to a URL or local file is easy:\n\n````markdown\nUse [mdBook](https://github.com/rust-lang/mdBook). \n\nRead about [mdBook](mdbook.md).\n\nA bare url: <https://www.rust-lang.org>.\n````\n\nUse [mdBook](https://github.com/rust-lang/mdBook). \n\nRead about [mdBook](mdbook.md).\n\nA bare url: <https://www.rust-lang.org>.\n\n---\n\nRelative links that end with `.md` will be converted to the `.html` extension.\nIt is recommended to use `.md` links when possible.\nThis is useful when viewing the Markdown file outside of mdBook, for example on GitHub or GitLab which render Markdown automatically.\n\nLinks to `README.md` will be converted to `index.html`.\nThis is done since some services like GitHub render README files automatically, but web servers typically expect the root file to be called `index.html`.\n\nYou can link to individual headings with `#` fragments.\nFor example, `mdbook.md#text-and-paragraphs` would link to the [Text and Paragraphs](#text-and-paragraphs) section above.\nThe ID is created by transforming the heading such as converting to lowercase and replacing spaces with dashes.\nYou can click on any heading and look at the URL in your browser to see what the fragment looks like.\n\n## Images\n\nIncluding images is simply a matter of including a link to them, much like in the *Links* section above. The following markdown\nincludes the Rust logo SVG image found in the `images` directory at the same level as this file:\n\n````markdown\n![The Rust Logo](images/rust-logo-blk.svg)\n````\n\nProduces the following HTML when built with mdBook:\n\n````html\n<p><img src=\"images/rust-logo-blk.svg\" alt=\"The Rust Logo\" /></p>\n````\n\nWhich, of course displays the image like so:\n\n![The Rust Logo](images/rust-logo-blk.svg)\n\n## Extensions\n\nmdBook has several extensions beyond the standard CommonMark specification.\n\n### Strikethrough\n\nText may be rendered with a horizontal line through the center by wrapping the\ntext with one or two tilde characters on each side:\n\n````text\nAn example of ~~strikethrough text~~.\n````\n\nThis example will render as:\n\n > \n > An example of ~~strikethrough text~~.\n\nThis follows the [GitHub Strikethrough extension](https://github.github.com/gfm/#strikethrough-extension-).\n\n### Footnotes\n\nA footnote generates a small numbered link in the text which when clicked\ntakes the reader to the footnote text at the bottom of the item. The footnote\nlabel is written similarly to a link reference with a caret at the front. The\nfootnote text is written like a link reference definition, with the text\nfollowing the label. Example:\n\n````text\nThis is an example of a footnote[^note].\n\n[^note]: This text is the contents of the footnote, which will be rendered\n    towards the bottom.\n````\n\nThis example will render as:\n\n > \n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n > towards the bottom.\n\nThe footnotes are automatically numbered based on the order the footnotes are\nwritten.\n\n### Tables\n\nTables can be written using pipes and dashes to draw the rows and columns of\nthe table. These will be translated to HTML table matching the shape. Example:\n\n````text\n| Header1 | Header2 |\n|---------|---------|\n| abc     | def     |\n````\n\nThis example will render similarly to this:\n\n|Header1|Header2|\n|-------|-------|\n|abc|def|\n\nSee the specification for the [GitHub Tables extension](https://github.github.com/gfm/#tables-extension-) for more\ndetails on the exact syntax supported.\n\n### Task lists\n\nTask lists can be used as a checklist of items that have been completed.\nExample:\n\n````md\n- [x] Complete task\n- [ ] Incomplete task\n````\n\nThis will render as:\n\n > \n > * [x] Complete task\n > * [ ] Incomplete task\n\nSee the specification for the [task list extension] for more details.\n\n### Smart punctuation\n\nSome ASCII punctuation sequences will be automatically turned into fancy Unicode\ncharacters:\n\n|ASCII sequence|Unicode|\n|--------------|-------|\n|`--`|–|\n|`---`|—|\n|`...`|…|\n|`\"`|“ or ”, depending on context|\n|`'`|‘ or ’, depending on context|\n\nSo, no need to manually enter those Unicode characters!\n\nThis feature is disabled by default.\nTo enable it, see the [`output.html.curly-quotes`] config option.\n\n### Heading attributes\n\nHeadings can have a custom HTML ID and classes. This lets you maintain the same ID even if you change the heading's text, it also lets you add multiple classes in the heading.\n\nExample:\n\n````md\n# Example heading { #first .class1 .class2 }\n````\n\nThis makes the level 1 heading with the content `Example heading`, ID `first`, and classes `class1` and `class2`. Note that the attributes should be space-separated.\n\nMore information can be found in the [heading attrs spec page](https://github.com/raphlinus/pulldown-cmark/blob/master/specs/heading_attrs.txt).\n\n[task list extension]: https://github.github.com/gfm/#task-list-items-extension-\n[`output.html.curly-quotes`]: configuration/renderers.md#html-renderer-options";
+        let content = "# Markdown\n\nmdBook's [parser](https://github.com/raphlinus/pulldown-cmark) adheres to the [CommonMark](https://commonmark.org/) specification with some extensions described below.\nYou can take a quick [tutorial](https://commonmark.org/help/tutorial/),\nor [try out](https://spec.commonmark.org/dingus/) CommonMark in real time. A complete Markdown overview is out of scope for \nthis documentation, but below is a high level overview of some of the basics. For a more in-depth experience, check out the\n[Markdown Guide](https://www.markdownguide.org).\n\n## Text and Paragraphs\n\nText is rendered relatively predictably: \n\n````markdown\nHere is a line of text.\n\nThis is a new line.\n````\n\nWill look like you might expect:\n\nHere is a line of text.\n\nThis is a new line.\n\n## Headings\n\nHeadings use the `#` marker and should be on a line by themselves. More `#` mean smaller headings:\n\n````markdown\n### A heading \n\nSome text.\n\n#### A smaller heading \n\nMore text.\n````\n\n### A heading\n\nSome text.\n\n#### A smaller heading\n\nMore text.\n\n## Lists\n\nLists can be unordered or ordered. Ordered lists will order automatically:\n\n````markdown\n* milk\n* eggs\n* butter\n\n1. carrots\n1. celery\n1. radishes\n````\n\n* milk\n* eggs\n* butter\n\n1. carrots\n1. celery\n1. radishes\n\n## Links\n\nLinking to a URL or local file is easy:\n\n````markdown\nUse [mdBook](https://github.com/rust-lang/mdBook). \n\nRead about [mdBook](mdbook.md).\n\nA bare url: <https://www.rust-lang.org>.\n````\n\nUse [mdBook](https://github.com/rust-lang/mdBook). \n\nRead about [mdBook](mdbook.md).\n\nA bare url: <https://www.rust-lang.org>.\n\n---\n\nRelative links that end with `.md` will be converted to the `.html` extension.\nIt is recommended to use `.md` links when possible.\nThis is useful when viewing the Markdown file outside of mdBook, for example on GitHub or GitLab which render Markdown automatically.\n\nLinks to `README.md` will be converted to `index.html`.\nThis is done since some services like GitHub render README files automatically, but web servers typically expect the root file to be called `index.html`.\n\nYou can link to individual headings with `#` fragments.\nFor example, `mdbook.md#text-and-paragraphs` would link to the [Text and Paragraphs](#text-and-paragraphs) section above.\nThe ID is created by transforming the heading such as converting to lowercase and replacing spaces with dashes.\nYou can click on any heading and look at the URL in your browser to see what the fragment looks like.\n\n## Images\n\nIncluding images is simply a matter of including a link to them, much like in the *Links* section above. The following markdown\nincludes the Rust logo SVG image found in the `images` directory at the same level as this file:\n\n````markdown\n![The Rust Logo](images/rust-logo-blk.svg)\n````\n\nProduces the following HTML when built with mdBook:\n\n````html\n<p><img src=\"images/rust-logo-blk.svg\" alt=\"The Rust Logo\" /></p>\n````\n\nWhich, of course displays the image like so:\n\n![The Rust Logo](images/rust-logo-blk.svg)\n\n## Extensions\n\nmdBook has several extensions beyond the standard CommonMark specification.\n\n### Strikethrough\n\nText may be rendered with a horizontal line through the center by wrapping the\ntext with one or two tilde characters on each side:\n\n````text\nAn example of ~~strikethrough text~~.\n````\n\nThis example will render as:\n\n > \n > An example of ~~strikethrough text~~.\n\nThis follows the [GitHub Strikethrough extension](https://github.github.com/gfm/#strikethrough-extension-).\n\n### Footnotes\n\nA footnote generates a small numbered link in the text which when clicked\ntakes the reader to the footnote text at the bottom of the item. The footnote\nlabel is written similarly to a link reference with a caret at the front. The\nfootnote text is written like a link reference definition, with the text\nfollowing the label. Example:\n\n````text\nThis is an example of a footnote[^note].\n\n[^note]: This text is the contents of the footnote, which will be rendered\n    towards the bottom.\n````\n\nThis example will render as:\n\n > \n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n >     towards the bottom.\n\nThe footnotes are automatically numbered based on the order the footnotes are\nwritten.\n\n### Tables\n\nTables can be written using pipes and dashes to draw the rows and columns of\nthe table. These will be translated to HTML table matching the shape. Example:\n\n````text\n| Header1 | Header2 |\n|---------|---------|\n| abc     | def     |\n````\n\nThis example will render similarly to this:\n\n|Header1|Header2|\n|-------|-------|\n|abc|def|\n\nSee the specification for the [GitHub Tables extension](https://github.github.com/gfm/#tables-extension-) for more\ndetails on the exact syntax supported.\n\n### Task lists\n\nTask lists can be used as a checklist of items that have been completed.\nExample:\n\n````md\n- [x] Complete task\n- [ ] Incomplete task\n````\n\nThis will render as:\n\n > \n > * [x] Complete task\n > * [ ] Incomplete task\n\nSee the specification for the [task list extension] for more details.\n\n### Smart punctuation\n\nSome ASCII punctuation sequences will be automatically turned into fancy Unicode\ncharacters:\n\n|ASCII sequence|Unicode|\n|--------------|-------|\n|`--`|–|\n|`---`|—|\n|`...`|…|\n|`\"`|“ or ”, depending on context|\n|`'`|‘ or ’, depending on context|\n\nSo, no need to manually enter those Unicode characters!\n\nThis feature is disabled by default.\nTo enable it, see the [`output.html.curly-quotes`] config option.\n\n### Heading attributes\n\nHeadings can have a custom HTML ID and classes. This lets you maintain the same ID even if you change the heading's text, it also lets you add multiple classes in the heading.\n\nExample:\n\n````md\n# Example heading { #first .class1 .class2 }\n````\n\nThis makes the level 1 heading with the content `Example heading`, ID `first`, and classes `class1` and `class2`. Note that the attributes should be space-separated.\n\nMore information can be found in the [heading attrs spec page](https://github.com/raphlinus/pulldown-cmark/blob/master/specs/heading_attrs.txt).\n\n[task list extension]: https://github.github.com/gfm/#task-list-items-extension-\n[`output.html.curly-quotes`]: configuration/renderers.md#html-renderer-options";
 
         let ctx: PreprocessorContext = mock_context();
         let book: Book = mock_book(content);
@@ -485,5 +727,52 @@ More information can be found in the [heading attrs spec page](https://github.co
         // The nop-preprocessor should not have made any changes to the book content.
         let actual_book = result.unwrap();
         assert_eq!(actual_book, expected_book);
+    }
+
+    // fn round_trip_fail(input_content: &str, expected_incorrect_output_content: &str) {
+    //     let ctx: PreprocessorContext = mock_context();
+
+    //     let input_book: Book = mock_book(input_content);
+    //     let expected_correct_output_book = input_book.clone();
+    //     let expected_incorrect_output_book: Book = mock_book(expected_incorrect_output_content);
+    //     let output_book = Classy::new().run(&ctx, input_book).unwrap();
+    //     assert_eq!(output_book, expected_incorrect_output_book);
+    //     assert_ne!(output_book, expected_correct_output_book);
+    // }
+
+    /// FIXME: this test texts for known issues with the round trip output from pulldown_cmark::cmark -> pulldown_cmark_to_cmark::cmark
+    /// https://github.com/Byron/pulldown-cmark-to-cmark/releases/tag/v11.0.1
+    #[test]
+    fn round_trip_fails_for_pulldown_cmark_to_cmark() {
+        // This example adds padding between > and towards. Changed in https://github.com/Byron/pulldown-cmark-to-cmark/releases/tag/v11.0.1
+        let input_content = "This example will render as:\n\n > \n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n > towards the bottom.";
+        let expected_incorrect_output_content = "This example will render as:\n\n > \n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n >     towards the bottom.";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
+
+        // this adds an extra \n > for some reason
+        let input_content = "\n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n >     towards the bottom.";
+        let expected_incorrect_output_content = "\n > \n > This is an example of a footnote[^note].\n > \n > [^note]: This text is the contents of the footnote, which will be rendered\n >     towards the bottom.";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
+
+        // this adds an extra back ticks and some new lines
+        let input_content = " >     towards the bottom.";
+        let expected_incorrect_output_content = "\n > \n > ````\n > towards the bottom.\n````";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
+
+        // this adds an extra back ticks and some new lines
+        let input_content = "```python\nprint(x)\n```";
+        let expected_incorrect_output_content = "\n````python\nprint(x)\n````";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
+
+        // this adds an extra escape chars
+        let input_content =
+            "```html\n<p><img src=\"images/rust-logo-blk.svg\" alt=\"The Rust Logo\" /></p>\n```";
+        let expected_incorrect_output_content = "\n````html\n<p><img src=\"images/rust-logo-blk.svg\" alt=\"The Rust Logo\" /></p>\n````";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
+
+        // this removes these bits
+        let input_content = "[task list extension]: https://github.github.com/gfm/#task-list-items-extension-\n[`output.html.curly-quotes`]: configuration/renderers.md#html-renderer-options";
+        let expected_incorrect_output_content = "";
+        assert_round_trip_fail!(input_content, expected_incorrect_output_content);
     }
 }
