@@ -18,7 +18,7 @@ rust-version = "1.70" # mdbook is currently 1.66, clap builder is 1.70
 
 [dependencies]
 chrono = "0.4.31"
-clap = {version = "4.4.8", features = ["derive"]}
+clap = {version = "4.5.0", features = ["derive"]}
 env_logger = "0.10.1"
 log = "0.4.20"
 mdbook = "0.4"
